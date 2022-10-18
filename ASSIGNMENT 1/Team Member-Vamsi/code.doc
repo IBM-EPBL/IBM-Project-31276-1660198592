@@ -1,0 +1,95 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial esp8266(2,3);
+
+#define serialCommunicationSpeed 9600
+#define DEBUG true
+int lightOne = 6;
+int lightTwo = 7;
+int lightThree = 8;
+int lightFour = 9;
+int indicator = 13;
+void setup()
+{
+  
+  pinMode(lightOne,OUTPUT);
+  pinMode(lightTwo,OUTPUT);
+  pinMode(lightThree,OUTPUT);
+  pinMode(lightFour,OUTPUT);
+  
+  pinMode(indicator,OUTPUT);
+
+  
+  digitalWrite(lightOne,HIGH);
+  digitalWrite(lightTwo,HIGH);
+  digitalWrite(lightThree,HIGH);
+  digitalWrite(lightFour,HIGH);
+  
+  digitalWrite(indicator,HIGH);
+
+  
+  Serial.begin(serialCommunicationSpeed);
+  esp8266.begin(serialCommunicationSpeed);
+  
+  InitWifiModule();  
+  digitalWrite(indicator,LOW);
+  delay(200);
+}
+void loop()
+{
+  if(esp8266.available())
+  {
+    delay(500);
+    if(esp8266.find("+IPD,"))
+    {
+      delay(500);
+      int connectionId = esp8266.read()-48;
+      esp8266.find("pin=");
+      int pinNumber = (esp8266.read()-48);
+      int statusLed =(esp8266.read()-48);
+      delay(500);
+      String responseData = "AT+CIPSEND=";
+      responseData += connectionId;
+      responseData += ",1\r\n";
+      Serial.println(responseData);
+      sendData(responseData , 800, DEBUG);
+      delay(100);
+      sendData(pinNumber+"\r\n",500,DEBUG);
+      delay(100);
+      digitalWrite(pinNumber, statusLed);
+      String closeCommand = "AT+CIPCLOSE=";
+      closeCommand+=connectionId;
+      closeCommand+="\r\n";
+      sendData(closeCommand,500,DEBUG);            
+    }
+  }
+}
+
+void sendData(String command, const int timeout, boolean debug){
+    String response = "";          
+    esp8266.print(command);
+    long int time = millis();
+    while( (time+timeout) > millis()){
+      while(esp8266.available()){
+        char c = esp8266.read();
+        response+=c;
+      }
+    }
+    if(DEBUG){
+      Serial.print(response);
+    }
+}
+void InitWifiModule(){
+  sendData("AT+RST\r\n", 1000, DEBUG);
+  delay(1000);
+  sendData("AT+CWMODE=1\r\n", 1000, DEBUG);
+  delay (500);
+  sendData("AT+CWJAP=\"your SSID\",\"password\"\r\n", 10000, DEBUG);
+  delay (1000);
+  sendData("AT+CIFSR\r\n", 1000, DEBUG);
+  delay (1000);
+  sendData("AT+CIPMUX=1\r\n", 500, DEBUG);
+  delay (1000);
+  sendData("AT+CIPSERVER=1,80\r\n", 1000, DEBUG);
+  delay(500);
+}
